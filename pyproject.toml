@@ -84,14 +84,11 @@ exclude = ["*.ipynb"]
 ignore = ["E501"]
 
 [build-system]
-requires = ["setuptools>=64", "setuptools_scm>=8"]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-# Path to version file relative to this pyproject.toml
-version_file = "src/ragas/_version.py"
-# Point to the repository root (one level up)
-root = ".."
+write_to = "src/ragas/_version.py"
 
 [tool.pytest.ini_options]
 addopts = "-n 0"
