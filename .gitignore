@@ -9,6 +9,7 @@ __pycache__/
 *$py.class
 experimental/logs/
 sample_docs/
+testset/
 # C extensions
 *.so
 
