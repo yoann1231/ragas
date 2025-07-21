@@ -5,9 +5,21 @@ from ragas_experimental.llms import llm_factory
 import os
 from .rag import default_rag_client
 
-openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+import os
+from openai import OpenAI
+
+# 设置环境变量（如果未设置）
+if not os.environ.get("OPENAI_API_KEY"):
+    os.environ["OPENAI_API_KEY"] = "sk-6e0ab41614524e2bb27a963eed405be3"
+if not os.environ.get("OPENAI_BASE_URL"):
+    os.environ["OPENAI_BASE_URL"] = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+openai_client = OpenAI(
+    api_key=os.environ.get("OPENAI_API_KEY"),
+    base_url=os.environ.get("OPENAI_BASE_URL")  # 添加这行
+)
 rag_client = default_rag_client(llm_client=openai_client)
-llm = llm_factory("openai","gpt-4o", openai_client)
+llm = llm_factory("openai","qwen-plus", openai_client)
 
 def load_dataset():
     
@@ -33,8 +45,8 @@ def load_dataset():
 
 my_metric = DiscreteMetric(
     name="correctness",
-    prompt = "Check if the response contains points mentioned from the grading notes and return 'pass' or 'fail'.\nResponse: {response} Grading Notes: {grading_notes}",
-    values=["pass", "fail"],
+    prompt="Check if the response contains points mentioned from the grading notes and return 'pass' or 'fail'.\nResponse: {response} Grading Notes: {grading_notes}",
+    allowed_values=["pass", "fail"],  # 修改：values -> allowed_values
 )
 
 @experiment()
@@ -50,7 +62,7 @@ async def run_experiment(row):
     experiment_view = {
         **row,
         "response": response,
-        "score": score.result,
+        "score": score.value,  # 修改：score.result -> score.value
         "log_file": response.get("logs", " "),
     }
     return experiment_view
@@ -58,8 +70,9 @@ async def run_experiment(row):
 
 async def main():
     dataset = load_dataset()
-    print("dataset loaded successfully", dataset)
-    await run_experiment.run_async(dataset)
+    print(f"dataset loaded successfully {dataset}")
+    
+    await run_experiment.arun(dataset)  # 修改这行
 
 if __name__ == "__main__":
     import asyncio

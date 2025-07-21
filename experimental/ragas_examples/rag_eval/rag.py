@@ -4,6 +4,7 @@ import json
 import os
 from datetime import datetime
 from dataclasses import dataclass, asdict
+from dotenv import load_dotenv
 
 
 DOCUMENTS = [
@@ -224,16 +225,7 @@ class ExampleRAG:
         return retrieved_docs
     
     def generate_response(self, query: str, top_k: int = 3) -> str:
-        """
-        Generate response to query using retrieved documents
-        
-        Args:
-            query: User query
-            top_k: Number of documents to retrieve
-            
-        Returns:
-            Generated response
-        """
+        """Generate response to query using retrieved documents"""
         if not self.is_fitted:
             raise ValueError("No documents have been added. Call add_documents() or set_documents() first.")
         
@@ -256,12 +248,17 @@ class ExampleRAG:
             context=context
         )
         
+        # 添加这行：创建 messages 格式
+        messages = [
+            {"role": "user", "content": prompt}
+        ]
+        
         self.traces.append(TraceEvent(
             event_type="llm_call",
             component="openai_api",
             data={
                 "operation": "generate_response",
-                "model": "gpt-4o",
+                "model": "qwen-plus",  # 更新模型名称
                 "query": query,
                 "prompt_length": len(prompt),
                 "context_length": len(context),
@@ -271,9 +268,10 @@ class ExampleRAG:
         
         try:
             response = self.llm_client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "system", "content": self.system_prompt},
-                          {"role": "user", "content": prompt}],
+                model="qwen-plus",  # 使用阿里云支持的模型
+                messages=messages,
+                max_tokens=500,
+                temperature=0.7
             )
             
             response_text = response.choices[0].message.content.strip()
@@ -285,7 +283,7 @@ class ExampleRAG:
                     "operation": "generate_response",
                     "response_length": len(response_text),
                     "usage": response.usage.model_dump() if response.usage else None,
-                    "model": "gpt-4o"
+                    "model": "qwen-plus"  # 更新模型名称
                 }
             ))
             
@@ -353,7 +351,12 @@ class ExampleRAG:
                 }
             ))
             
-            return {"result": result, "logs": self.export_traces_to_log(run_id, question, result)}
+            # 修改这里：直接返回 answer 和 logs，而不是嵌套在 result 中
+            return {
+                'answer': response,
+                'run_id': run_id,
+                'logs': self.export_traces_to_log(run_id, question, result)
+            }
 
         except Exception as e:
             self.traces.append(TraceEvent(
@@ -412,11 +415,21 @@ def default_rag_client(llm_client, logdir: str = "logs") -> ExampleRAG:
 
 
 if __name__ == "__main__":
+    # 加载 .env 文件
+    load_dotenv()
     
-    api_key = os.environ["OPENAI_API_KEY"]
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("请设置 OPENAI_API_KEY 环境变量")
+    
+    # 支持自定义 base_url
+    base_url = os.environ.get("OPENAI_BASE_URL")
     
     # Initialize RAG system with tracing enabled
-    llm = OpenAI(api_key=api_key)
+    llm = OpenAI(
+        api_key=api_key,
+        base_url=base_url  # 如果设置了自定义 URL
+    )
     r = SimpleKeywordRetriever()
     rag_client = ExampleRAG(llm_client=llm, retriever=r, logdir="logs")
     
